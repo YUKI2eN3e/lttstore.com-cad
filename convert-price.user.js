@@ -25,8 +25,11 @@
 
 
 
-    const MONEY_REGEX = /(?!Regular price\n)(\$[\.0-9]*)(?!USD)/gm;
+    const REGULAR_MONEY_REGEX = /(?!Regular price\n)(\$[\.0-9]*)(?!USD)/gm;
+    const SALE_MONEY_REGEX = /(?!Sale price\n)(\$[\.0-9]*)(?!USD)/gm;
     const USD_CAD_RATE = 1.3533;
+
+    const TTL = 30;
 
     // 1 USD = this much CAD
     //
@@ -41,7 +44,7 @@
             if (stored_dollar_exchange_rate.includes(':')) {
                 let split_exchange_rate = stored_dollar_exchange_rate.split('\:');
 
-                if (new Date().getTime() - parseFloat(split_exchange_rate[1]) < 1000 * 60 * 5) {
+                if (new Date().getTime() - parseFloat(split_exchange_rate[1]) < 1000 * 60 * TTL) {
                     console.log('Using cached exchange value. ');
 
                     return parseFloat(split_exchange_rate[0]);
@@ -83,9 +86,12 @@
         convert(document.getElementsByClassName('price'));
         convert(document.getElementsByClassName('money'));
 
-        async function getPrice(innerText) {
-            let m;
-            return MONEY_REGEX.exec(innerText);
+        async function getRegularPrice(innerText) {
+            return REGULAR_MONEY_REGEX.exec(innerText);
+        }
+
+        async function getSalePrice(innerText) {
+            return SALE_MONEY_REGEX.exec(innerText);
         }
 
         async function convert(arrayIn) {
@@ -96,13 +102,25 @@
 
                 if (e.innerText.toLowerCase().includes("free")) continue;
 
-                let price = parseFloat(String(await (getPrice(e.innerText))).substring(1));
-                let converted = (USDtoCADExchange * price).toFixed(2);
+                let regularPrice = parseFloat(String(await (getRegularPrice(e.innerText))).substring(1));
+                let regularConverted = (USDtoCADExchange * regularPrice).toFixed(2);
 
                 // Something went wrong
-                if (price == NaN || converted == NaN) continue;
+                if (regularPrice == NaN || regularConverted == NaN) continue;
 
-                e.innerText = e.innerText.replace(`${price} USD`, `${price} USD / $${converted} CAD`)
+                e.innerText = e.innerText.replace(`${regularPrice} USD`, `${regularPrice} USD / $${regularConverted} CAD`)
+
+                // try {
+                //     let salePrice = parseFloat(String(await (getSalePrice(e.innerText))).substring(1));
+                //     let saleConverted = (USDtoCADExchange * salePrice).toFixed(2);
+
+                //     // Something went wrong
+                //     if (salePrice == NaN || saleConverted == NaN) continue;
+
+                //     e.innerText = e.innerText.replace(`${salePrice} USD`, `${salePrice} USD / $${saleConverted} CAD`)
+                // } catch {
+                //     continue;
+                // }
 
                 e.prevInnerText = e.innerText;
             }
